@@ -2,6 +2,7 @@
 
 import os
 import csv
+import shutil
 import logging
 import argparse
 import subprocess
@@ -40,16 +41,17 @@ def find_genome_length(fasta_file):
 
 
 def create_fastq_from_fasta(fasta_file, output_fastq, depth=20, read_length=250, insert_size=350, insert_std=10,
-                            platform='MSv1', logfile='art.log'):
+                            platform='MSv1', logfile='art.log', quality_shift=0):
     # Use ART to simulate us some reads
     cmd = 'art_illumina -ss {platform} -i {input_fasta} -l {read_length} -na -p -f {depth} -m {insert_size}' \
-          ' -s {insert_std} -o {output_fastq}'.format(input_fasta=fasta_file,
-                                                      output_fastq=output_fastq,
-                                                      depth=depth,
-                                                      read_length=read_length,
-                                                      insert_size=insert_size,
-                                                      insert_std=insert_std,
-                                                      platform=platform)
+          ' -s {insert_std} -o {output_fastq} -qs {quality_shift} -qs2 {quality_shift}'.format(input_fasta=fasta_file,
+                                                                                               output_fastq=output_fastq,
+                                                                                               depth=depth,
+                                                                                               read_length=read_length,
+                                                                                               insert_size=insert_size,
+                                                                                               insert_std=insert_std,
+                                                                                               platform=platform,
+                                                                                               quality_shift=quality_shift)
     with open(logfile, 'a+') as f:
         subprocess.call(cmd, shell=True, stderr=f, stdout=f)
         # Rename the files and gzip them for space savings.
@@ -61,7 +63,7 @@ def create_fastq_from_fasta(fasta_file, output_fastq, depth=20, read_length=250,
         f.write(cmd + '\n')
 
 
-def simulate_reads(normalized_proportions, desired_number_reads, output_dir):
+def simulate_reads(normalized_proportions, desired_number_reads, output_dir, quality_shift):
     # With normalized proportions figured out, need to do some read simulation.
     # Use knowledge of genome size to figure out what depth needs to be simulated to so that we don't have to subsample
     # afterwards.
@@ -76,7 +78,8 @@ def simulate_reads(normalized_proportions, desired_number_reads, output_dir):
         create_fastq_from_fasta(fasta_file=strain,
                                 output_fastq=output_fastq_name,
                                 depth=genome_coverage,
-                                logfile=os.path.join(output_dir, 'fetagenome.log'))
+                                logfile=os.path.join(output_dir, 'fetagenome.log'),
+                                quality_shift=quality_shift)
 
 
 def concatenate_into_fetagenome(output_dir, fetagenome_name, logfile='fetagenome.log'):
@@ -124,12 +127,23 @@ def main():
                         default='FetaGenome',
                         help='Name of your FetaGenome file. Defaults to FetaGenome (so reads will be called '
                              'FetaGenome_R1.fastq.gz and FetaGenome_R2.fastq.gz)')
+    parser.add_argument('-q', '--quality_shift',
+                        type=int,
+                        default=0,
+                        help='By default, ART will simulate Illumina reads with fairly high quality. If you want '
+                             'this changed, you can make them even higher quality with a positive integer (to shift up'
+                             ' by 2 on average, enter 2) or make them lower quality with a negative number.')
     args = parser.parse_args()
 
     # Setup the logger.
     logging.basicConfig(format='\033[92m \033[1m %(asctime)s \033[0m %(message)s ',
                         level=logging.INFO,
                         datefmt='%Y-%m-%d %H:%M:%S')
+
+    # Check that ART is available on the $PATH, and boot user if it isn't
+    if shutil.which('art_illumina') is None:
+        logging.ERROR('ERROR: Could not find \'art_illumina\' executable on $PATH. Please install ART and'
+                      ' then try running FetaGenome')
 
     # Make our fetagenomes.
     if not os.path.isdir(args.output_dir):
@@ -140,7 +154,8 @@ def main():
     normalized_proportions = normalize_proportions(proportions)
     simulate_reads(normalized_proportions=normalized_proportions,
                    desired_number_reads=args.number_reads,
-                   output_dir=args.output_dir)
+                   output_dir=args.output_dir,
+                   quality_shift=args.quality_shift)
     logging.info('Merging created reads into FetaGenome and cleaning up.')
     concatenate_into_fetagenome(output_dir=args.output_dir,
                                 fetagenome_name=args.fetagenome_name,

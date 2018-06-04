@@ -24,7 +24,7 @@ Put the absolute path to FASTA files you want to use in the first column and the
 
 ```
 usage: FetaGenome [-h] -c CONFIG_FILE -o OUTPUT_DIR [-n NUMBER_READS]
-                     [-f FETAGENOME_NAME]
+                  [-f FETAGENOME_NAME] [-q QUALITY_SHIFT]
 
 Given a configuration file, will create a FetaGenome from FASTA files by
 simulating reads with ART and pasting reads together into a FetaGenome.
@@ -44,4 +44,10 @@ optional arguments:
                         Name of your FetaGenome file. Defaults to FetaGenome
                         (so reads will be called FetaGenome_R1.fastq.gz and
                         FetaGenome_R2.fastq.gz)
+  -q QUALITY_SHIFT, --quality_shift QUALITY_SHIFT
+                        By default, ART will simulate Illumina reads with
+                        fairly high quality. If you want this changed, you can
+                        make them even higher quality with a positive integer
+                        (to shift up by 2 on average, enter 2) or make them
+                        lower quality with a negative number.
 ```
