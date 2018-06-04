@@ -5,8 +5,8 @@ compositions.
 
 In order to have these scripts work, you'll need to following installed and available on your `$PATH`:
 
-- [ART] (https://www.niehs.nih.gov/research/resources/software/biostatistics/art/index.cfm)
-- [Python3] (https://www.python.org/downloads/)
+- [ART](https://www.niehs.nih.gov/research/resources/software/biostatistics/art/index.cfm)
+- [Python3](https://www.python.org/downloads/)
 
 ### Installing FetaGenome Generator
 
