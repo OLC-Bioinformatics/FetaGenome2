@@ -21,6 +21,10 @@ in a config file that is given as one of the arguments to the script.
 
 The config file should have two columns, comma-separated - the first should be `Strain`, and the second should be `Proportion`.
 Put the absolute path to FASTA files you want to use in the first column and the relative proportion in the second.
+If you want to have this process simplified, put all the FASTA files you're interested in having as part of your
+FetaGenome into a folder and run `generate_contig_file -i /path/to/folder`. This will create a file called
+`FetaGenomeConfig.csv` in your current working directory with all FASTA-formatted files in the folder specified as
+strains in equal proportions.
 
 ```
 usage: FetaGenome [-h] -c CONFIG_FILE -o OUTPUT_DIR [-n NUMBER_READS]
