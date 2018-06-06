@@ -1,3 +1,5 @@
+[![PyPI version](https://badge.fury.io/py/fetagenome.svg)](https://badge.fury.io/py/fetagenome)
+
 # FetaGenome Generator
 
 Scripts in this repository allow for the creation of 'Fake Metagenomes' (aka FetaGenomes) with known community
@@ -28,7 +30,7 @@ strains in equal proportions.
 
 ```
 usage: FetaGenome [-h] -c CONFIG_FILE -o OUTPUT_DIR [-n NUMBER_READS]
-                  [-f FETAGENOME_NAME] [-q QUALITY_SHIFT]
+                  [-f FETAGENOME_NAME] [-q QUALITY_SHIFT] [-t THREADS]
 
 Given a configuration file, will create a FetaGenome from FASTA files by
 simulating reads with ART and pasting reads together into a FetaGenome.
@@ -54,4 +56,8 @@ optional arguments:
                         make them even higher quality with a positive integer
                         (to shift up by 2 on average, enter 2) or make them
                         lower quality with a negative number.
+  -t THREADS, --threads THREADS
+                        Number of threads to run, allows for much faster
+                        simulation of reads. Defaults to number of cores on
+                        your machine.
 ```

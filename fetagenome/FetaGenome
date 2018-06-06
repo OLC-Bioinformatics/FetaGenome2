@@ -7,6 +7,7 @@ import logging
 import argparse
 import subprocess
 from Bio import SeqIO
+import multiprocessing
 
 
 def parse_config_file(config_file):
@@ -57,10 +58,10 @@ def find_genome_length(fasta_file):
 
 
 def create_fastq_from_fasta(fasta_file, output_fastq, depth=20, read_length=250, insert_size=350, insert_std=10,
-                            platform='MSv1', logfile='art.log', quality_shift=0):
+                            platform='MSv1', quality_shift=0):
     """
-    Uses art_illumina to create simulated FASTQ files. Also does some renaming, since I don't like ART's naming
-    scheme for paired-end reads.
+    Creates a command to send to art_illumina to create simulated FASTQ files. Also does some renaming,
+    since I don't like ART's naming scheme for paired-end reads.
     :param fasta_file: Path to uncompressed fasta file to simulate reads from.
     :param output_fastq: Base name for output fastq file.
     :param depth: Desired coverage depth.
@@ -68,8 +69,8 @@ def create_fastq_from_fasta(fasta_file, output_fastq, depth=20, read_length=250,
     :param insert_size: Desired insert size (by insert, ART means fragment length)
     :param insert_std: Standard deviation of insert size.
     :param platform: Sequencing platform. Defaults to MSv1, since MSv3 quality profiles look very wrong.
-    :param logfile: File where Logging info will be kept.
     :param quality_shift: Amount to quality shift bases by. Positive value for better quality, negative for lower.
+    :return: cmd - the command to run which will run ART, and rename files to make
     """
     # Use ART to simulate us some reads
     cmd = 'art_illumina -ss {platform} -i {input_fasta} -l {read_length} -na -p -f {depth} -m {insert_size}' \
@@ -81,18 +82,22 @@ def create_fastq_from_fasta(fasta_file, output_fastq, depth=20, read_length=250,
                                                                                                insert_std=insert_std,
                                                                                                platform=platform,
                                                                                                quality_shift=quality_shift)
-    with open(logfile, 'a+') as f:
-        subprocess.call(cmd, shell=True, stderr=f, stdout=f)
-        # Rename the files to use the _R1/_R2 convention.
-        cmd = 'mv {fastq_name}1.fq {fastq_name}_R1.fastq'.format(fastq_name=output_fastq)
-        os.system(cmd)
-        f.write(cmd + '\n')
-        cmd = 'mv {fastq_name}2.fq {fastq_name}_R2.fastq'.format(fastq_name=output_fastq)
-        os.system(cmd)
-        f.write(cmd + '\n')
+    # Rename the files to use the _R1/_R2 convention.
+    cmd += ' && mv {fastq_name}1.fq {fastq_name}_R1.fastq'.format(fastq_name=output_fastq)
+    cmd += ' && mv {fastq_name}2.fq {fastq_name}_R2.fastq'.format(fastq_name=output_fastq)
+    return cmd
 
 
-def simulate_reads(normalized_proportions, desired_number_reads, output_dir, quality_shift):
+def run_cmd(cmd, log_message):
+    logging.info(log_message)
+    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    messages = cmd + '\n' + stdout.decode() + '\n' + stderr.decode() + '\n'
+    return messages
+
+
+def simulate_reads(normalized_proportions, desired_number_reads, output_dir, quality_shift, threads=1,
+                   logfile='fetagenome.log'):
     """
     Simulates reads in proportions specified.
     :param normalized_proportions: Normalized proportion dictionary created by normalize_proportions
@@ -102,20 +107,27 @@ def simulate_reads(normalized_proportions, desired_number_reads, output_dir, qua
     """
     # Use knowledge of genome size to figure out what depth needs to be simulated to so that we don't have to subsample
     # afterwards.
+    commands = list()
+    log_messages = list()
     for strain in normalized_proportions:
-        logging.info('Simulating reads for {}'.format(strain))
+        log_messages.append('Simulating reads for {}'.format(strain))
         genome_length = find_genome_length(strain)
         genome_num_reads = normalized_proportions[strain] * desired_number_reads
         # Genome coverage level: Get the number of bases we want by multiplying number of reads needed for this genome
         # by read length (250), then dividing by genome length to get coverage
         genome_coverage = (genome_num_reads * 250)/genome_length
         output_fastq_name = os.path.join(output_dir, os.path.split(strain)[-1].split('.')[0])
-        create_fastq_from_fasta(fasta_file=strain,
-                                output_fastq=output_fastq_name,
-                                depth=genome_coverage,
-                                logfile=os.path.join(output_dir, 'fetagenome.log'),
-                                quality_shift=quality_shift)
-
+        commands.append(create_fastq_from_fasta(fasta_file=strain,
+                                                output_fastq=output_fastq_name,
+                                                depth=genome_coverage,
+                                                quality_shift=quality_shift))
+    pool = multiprocessing.Pool(processes=threads)
+    messages = pool.starmap(run_cmd, zip(commands, log_messages))
+    pool.close()
+    pool.join()
+    with open(logfile, 'a+') as f:
+        for message in messages:
+            f.write(message)
 
 def concatenate_into_fetagenome(output_dir, fetagenome_name, logfile='fetagenome.log'):
     """
@@ -148,6 +160,7 @@ def concatenate_into_fetagenome(output_dir, fetagenome_name, logfile='fetagenome
 
 
 def main():
+    num_cpu_cores = multiprocessing.cpu_count()
     parser = argparse.ArgumentParser(description='Given a configuration file, will create a FetaGenome from FASTA files'
                                                  ' by simulating reads with ART and pasting reads together into a '
                                                  'FetaGenome.')
@@ -175,6 +188,11 @@ def main():
                         help='By default, ART will simulate Illumina reads with fairly high quality. If you want '
                              'this changed, you can make them even higher quality with a positive integer (to shift up'
                              ' by 2 on average, enter 2) or make them lower quality with a negative number.')
+    parser.add_argument('-t', '--threads',
+                        type=int,
+                        default=num_cpu_cores,
+                        help='Number of threads to run, allows for much faster simulation of reads. Defaults to '
+                             'number of cores on your machine.')
     args = parser.parse_args()
 
     # Setup the logger.
@@ -197,7 +215,9 @@ def main():
     simulate_reads(normalized_proportions=normalized_proportions,
                    desired_number_reads=args.number_reads,
                    output_dir=args.output_dir,
-                   quality_shift=args.quality_shift)
+                   quality_shift=args.quality_shift,
+                   threads=args.threads,
+                   logfile=os.path.join(args.output_dir, 'fetagenome.log'))
     logging.info('Merging created reads into FetaGenome and cleaning up.')
     concatenate_into_fetagenome(output_dir=args.output_dir,
                                 fetagenome_name=args.fetagenome_name,
