@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="fetagenome",
-    version="0.1.2",
+    version="0.1.3",
     packages=find_packages(),
     scripts=['fetagenome/FetaGenome',
              'fetagenome/generate_config_file'],

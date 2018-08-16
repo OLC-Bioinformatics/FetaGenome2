@@ -24,13 +24,14 @@ in a config file that is given as one of the arguments to the script.
 The config file should have two columns, comma-separated - the first should be `Strain`, and the second should be `Proportion`.
 Put the absolute path to FASTA files you want to use in the first column and the relative proportion in the second.
 If you want to have this process simplified, put all the FASTA files you're interested in having as part of your
-FetaGenome into a folder and run `generate_contig_file -i /path/to/folder`. This will create a file called
+FetaGenome into a folder and run `generate_config_file -i /path/to/folder`. This will create a file called
 `FetaGenomeConfig.csv` in your current working directory with all FASTA-formatted files in the folder specified as
 strains in equal proportions.
 
 ```
 usage: FetaGenome [-h] -c CONFIG_FILE -o OUTPUT_DIR [-n NUMBER_READS]
                   [-f FETAGENOME_NAME] [-q QUALITY_SHIFT] [-t THREADS]
+                  [-l READ_LENGTH] [-p {MSv1,HS25}]
 
 Given a configuration file, will create a FetaGenome from FASTA files by
 simulating reads with ART and pasting reads together into a FetaGenome.
@@ -60,4 +61,9 @@ optional arguments:
                         Number of threads to run, allows for much faster
                         simulation of reads. Defaults to number of cores on
                         your machine.
+  -l READ_LENGTH, --read_length READ_LENGTH
+                        Read length. Defaults to 250.
+  -p {MSv1,HS25}, --platform {MSv1,HS25}
+                        Sequencing platform to simulate from. Choices are MSv1
+                        (MiSeq) or HS25 (HiSeq 2500). Defaults to MiSeq
 ```

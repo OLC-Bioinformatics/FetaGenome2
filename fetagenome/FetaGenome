@@ -96,7 +96,7 @@ def run_cmd(cmd, log_message):
     return messages
 
 
-def simulate_reads(normalized_proportions, desired_number_reads, output_dir, quality_shift, threads=1,
+def simulate_reads(normalized_proportions, desired_number_reads, output_dir, quality_shift, read_length, platform, threads=1,
                    logfile='fetagenome.log'):
     """
     Simulates reads in proportions specified.
@@ -115,12 +115,14 @@ def simulate_reads(normalized_proportions, desired_number_reads, output_dir, qua
         genome_num_reads = normalized_proportions[strain] * desired_number_reads
         # Genome coverage level: Get the number of bases we want by multiplying number of reads needed for this genome
         # by read length (250), then dividing by genome length to get coverage
-        genome_coverage = (genome_num_reads * 250)/genome_length
+        genome_coverage = (genome_num_reads * read_length)/genome_length
         output_fastq_name = os.path.join(output_dir, os.path.split(strain)[-1].split('.')[0])
         commands.append(create_fastq_from_fasta(fasta_file=strain,
                                                 output_fastq=output_fastq_name,
                                                 depth=genome_coverage,
-                                                quality_shift=quality_shift))
+                                                quality_shift=quality_shift,
+                                                read_length=read_length,
+                                                platform=platform))
     pool = multiprocessing.Pool(processes=threads)
     messages = pool.starmap(run_cmd, zip(commands, log_messages))
     pool.close()
@@ -128,6 +130,7 @@ def simulate_reads(normalized_proportions, desired_number_reads, output_dir, qua
     with open(logfile, 'a+') as f:
         for message in messages:
             f.write(message)
+
 
 def concatenate_into_fetagenome(output_dir, fetagenome_name, logfile='fetagenome.log'):
     """
@@ -193,6 +196,16 @@ def main():
                         default=num_cpu_cores,
                         help='Number of threads to run, allows for much faster simulation of reads. Defaults to '
                              'number of cores on your machine.')
+    parser.add_argument('-l', '--read_length',
+                        type=int,
+                        default=250,
+                        help='Read length. Defaults to 250.')
+    parser.add_argument('-p', '--platform',
+                        type=str,
+                        default='MSv1',
+                        choices=['MSv1', 'HS25'],
+                        help='Sequencing platform to simulate from. Choices are MSv1 (MiSeq) or '
+                             'HS25 (HiSeq 2500). Defaults to MiSeq')
     args = parser.parse_args()
 
     # Setup the logger.
@@ -202,7 +215,7 @@ def main():
 
     # Check that ART is available on the $PATH, and boot user if it isn't
     if shutil.which('art_illumina') is None:
-        logging.ERROR('ERROR: Could not find \'art_illumina\' executable on $PATH. Please install ART and'
+        logging.error('ERROR: Could not find \'art_illumina\' executable on $PATH. Please install ART and'
                       ' then try running FetaGenome')
 
     # Make our fetagenomes.
@@ -212,12 +225,17 @@ def main():
     logging.info('Parsing configuration file.')
     proportions = parse_config_file(args.config_file)
     normalized_proportions = normalize_proportions(proportions)
+    logging.info('Proportions put in were:')
+    for proportion in normalized_proportions:
+        logging.info('{}:{}'.format(proportion, normalized_proportions[proportion]))
     simulate_reads(normalized_proportions=normalized_proportions,
                    desired_number_reads=args.number_reads,
                    output_dir=args.output_dir,
                    quality_shift=args.quality_shift,
                    threads=args.threads,
-                   logfile=os.path.join(args.output_dir, 'fetagenome.log'))
+                   logfile=os.path.join(args.output_dir, 'fetagenome.log'),
+                   read_length=args.read_length,
+                   platform=args.platform)
     logging.info('Merging created reads into FetaGenome and cleaning up.')
     concatenate_into_fetagenome(output_dir=args.output_dir,
                                 fetagenome_name=args.fetagenome_name,
