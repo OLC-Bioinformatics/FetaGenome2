@@ -97,7 +97,7 @@ def run_cmd(cmd, log_message):
 
 
 def simulate_reads(normalized_proportions, desired_number_reads, output_dir, quality_shift, read_length, platform, threads=1,
-                   logfile='fetagenome.log'):
+                   logfile='fetagenome.log', insert_size=200):
     """
     Simulates reads in proportions specified.
     :param normalized_proportions: Normalized proportion dictionary created by normalize_proportions
@@ -122,7 +122,8 @@ def simulate_reads(normalized_proportions, desired_number_reads, output_dir, qua
                                                 depth=genome_coverage,
                                                 quality_shift=quality_shift,
                                                 read_length=read_length,
-                                                platform=platform))
+                                                platform=platform,
+                                                insert_size=insert_size))
     pool = multiprocessing.Pool(processes=threads)
     messages = pool.starmap(run_cmd, zip(commands, log_messages))
     pool.close()
@@ -200,6 +201,10 @@ def main():
                         type=int,
                         default=250,
                         help='Read length. Defaults to 250.')
+    parser.add_argument('-i', '--insert_size',
+                        type=int,
+                        default=300,
+                        help='Insert size. Defaults to 300.')
     parser.add_argument('-p', '--platform',
                         type=str,
                         default='MSv1',
@@ -235,7 +240,8 @@ def main():
                    threads=args.threads,
                    logfile=os.path.join(args.output_dir, 'fetagenome.log'),
                    read_length=args.read_length,
-                   platform=args.platform)
+                   platform=args.platform,
+                   insert_size=args.insert_size)
     logging.info('Merging created reads into FetaGenome and cleaning up.')
     concatenate_into_fetagenome(output_dir=args.output_dir,
                                 fetagenome_name=args.fetagenome_name,
