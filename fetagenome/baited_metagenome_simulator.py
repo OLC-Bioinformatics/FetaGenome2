@@ -11,6 +11,9 @@ from Bio.Blast import NCBIXML
 from Bio.Blast.Applications import NcbiblastnCommandline
 
 
+# TODO: ALL THE DOCSTRINGS
+
+
 class GeneLocation:
     def __init__(self, fasta_file, contig_name, start_position, end_position):
         self.fasta_file = fasta_file
@@ -39,15 +42,30 @@ def find_target_gene_locations(proportions_dictionary, target_fasta):
                         # Allow hits that are at least 90 percent identical over 90 percent of length.
                         # TODO: Let the user parameters trickle through to here.
                         if hsp.align_length >= subject_length * 0.9 and hsp.positives >= subject_length * 0.9:
+                            contig_name = alignment.title.split()[1]
                             gene_loc = GeneLocation(fasta_file=genome_fasta,
-                                                    )
+                                                    contig_name=contig_name,
+                                                    start_position=hsp.sbjct_start,
+                                                    end_position=hsp.sbjct_end)
+                            gene_locations.append(gene_loc)
     return gene_locations
 
 
-def find_proportion_target_bases_each_genome(proportions_dictionary, gene_locations):
+def find_proportion_target_bases_each_genome(proportions_dict, gene_locations):
     # For each genome, figure out how much in terms of proportion is covered by target genes.
     # This information will get used to figure out how much of each gene to simulate.
-    pass
+    genome_length_dict = dict()
+    target_base_dict = dict()
+    for genome in proportions_dict:
+        genome_length = fetagenome.find_genome_length(genome)
+        genome_length_dict[genome] = genome_length
+        target_base_dict[genome] = 0
+    for gene_location in gene_locations:
+        target_base_dict[gene_location.fasta_file] += abs(gene_location.end_position - gene_location.start_position)
+    genome_coverage_proportions = dict()
+    for genome in proportions_dict:
+        genome_coverage_proportions[genome] = target_base_dict[genome]/genome_length_dict[genome]
+    return genome_coverage_proportions
 
 
 def extract_gene_sequences(gene_locations, fragment_size, fragment_stdev, output_fasta):
@@ -117,11 +135,22 @@ def main():
     # 1) Figure out where in each genome each target is, if it's there at all. Use BLAST for this.
     gene_locations = find_target_gene_locations(proportions_dictionary=normalized_proportions,
                                                 target_fasta=args.targets)
-    # 2) Once we know where each gene is within each genome, can then pull out fasta sequences of the gene + upstream
-    # and downstream regions roughly equal to fragment size. Will likely need to pull out more than once, with the gene
-    # sequences themselves being represented lots of times, and the upstream/downstream regions not as much.
-    # 3) Once all of that stuff is pulled out, just need to simulate the FASTA file using ART (or whatever else).
-    # 4) Also simulate some stuff against all the background genomes for the off_target_fraction.
+    # With the gene locations known, we can find how much of each genome is covered by targets that should be baited out
+    target_base_proportions = find_proportion_target_bases_each_genome(proportions_dict=normalized_proportions,
+                                                                       gene_locations=gene_locations)
+    # Now that we know both target base proportions and the proportions of each genome in each mixture, multiply
+    # the two together to get how much we expect each genome to contribute, and normalize  # TODO
+
+    # Once that's done, extract genes from FASTA files, in proportions expected for each genome, with some end fragments
+    # hanging around. Then, simulate 1 - off_target_fraction * number_reads reads from that file.
+
+    # Simulate off target reads by putting all genomes involved into a file and simulating off_target_fraction*number_reads
+
+    # Put together the on and off target fasta files.
+
+    # ???
+
+    # Profit
 
 
 if __name__ == '__main__':
