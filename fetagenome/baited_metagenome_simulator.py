@@ -29,7 +29,7 @@ class GeneLocation:
         self.start_position = start_position
         self.end_position = end_position
         # Give each gene location a name that should be unique
-        self.name = '{}_{}_{}_{}'.format(self.fasta_file, self.contig_name, self.start_position, self.end_position)
+        self.name = '{}_{}_{}_{}_{}'.format(self.fasta_file, self.contig_name, self.start_position, self.end_position, random.random())
         self.gene_length = abs(self.end_position - self.start_position)
 
 
@@ -79,7 +79,7 @@ def find_proportion_target_bases_each_gene(proportions_dict, gene_locations):
 
 
 def create_fragment(gene_location, fragment_size, fragment_stdev):
-    # Index the fasta file
+    # Index the fasta file - hilariously inefficent to not just read in each file one.
     genome_index = SeqIO.index(gene_location.fasta_file, 'fasta')
 
     # Draw a fragment size from normal distribution.
@@ -106,8 +106,11 @@ def create_fragment(gene_location, fragment_size, fragment_stdev):
 def extract_gene_sequences(gene_locations, gene_proportions, fragment_size, fragment_stdev, output_fasta):
     total_genes_to_write = 10000
     genes_written = 1
+    proportion_so_far = 0.0
     for gene_location in gene_locations:
         number_fastas_to_create = int(total_genes_to_write * gene_proportions[gene_location.name])
+        proportion_so_far += gene_proportions[gene_location.name]
+
         for i in range(number_fastas_to_create):
             dna_fragment = create_fragment(gene_location=gene_location,
                                            fragment_size=fragment_size,
@@ -131,21 +134,14 @@ def dependency_check():
 
 
 def simulate_target_reads(extracted_targets_fasta, num_reads, fragment_size, fragment_stdev, output_dir):
-    read_length = 150
-    logging.info('Aiming for {} reads'.format(num_reads))
-    # Find length of extracted_targets_fasta so we know what fold coverage we're shooting for
-    fasta_length = fetagenome.find_genome_length(extracted_targets_fasta)
-    logging.info('Total fasta length is {}'.format(fasta_length))
-
-    # Get fold coverage desired by multiplying read length by num_reads to find how many bases we want, then
-    # divide by how long the fasta actually is.
-    # TODO: This is somehow getting only 3/4 of the number of reads I want for reasons I don't think I understand...
-    fold_coverage = (num_reads * read_length)/fasta_length
-    art_cmd = 'art_illumina -ss HS25 -i {} -l 150 -p -f {} -m {} -s {} -o {}'.format(extracted_targets_fasta,
-                                                                                     fold_coverage,
+    reads_per_target = num_reads/10000/2
+    art_cmd = 'art_illumina -ss HS25 -i {} -l 150 -c {} -p -m {} -s {} -o {}'.format(extracted_targets_fasta,
+                                                                                     reads_per_target,
                                                                                      fragment_size,
                                                                                      fragment_stdev,
                                                                                      os.path.join(output_dir, 'target'))
+    art_cmd += ' && mv {fastq_name}1.fq {fastq_name}_R1.fastq'.format(fastq_name=os.path.join(output_dir, 'target'))
+    art_cmd += ' && mv {fastq_name}2.fq {fastq_name}_R2.fastq'.format(fastq_name=os.path.join(output_dir, 'target'))
     logging.info(art_cmd)
     os.system(art_cmd)
 
