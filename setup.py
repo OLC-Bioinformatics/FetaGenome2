@@ -16,5 +16,6 @@ setup(
     author="Andrew Low",
     author_email='andrew.low@canada.ca',
     url='https://github.com/lowandrew/FetaGenome2',
-    install_requires=['biopython']
+    install_requires=['biopython',
+                      'numpy']
 )
