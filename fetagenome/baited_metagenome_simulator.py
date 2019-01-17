@@ -147,6 +147,7 @@ def simulate_target_reads(extracted_targets_fasta, num_reads, fragment_size, fra
 
 
 def simulate_off_target_reads(normalized_proportions, number_reads, read_length, fragment_size, fragment_stdev, output_dir):
+    # TODO: This is a stupid method. Get rid of it and just call simulate reads more directlt
     fetagenome.simulate_reads(normalized_proportions=normalized_proportions,
                               desired_number_reads=number_reads,
                               read_length=read_length,
@@ -169,7 +170,7 @@ def main():
     parser.add_argument('-o', '--output_dir',
                         required=True,
                         type=str,
-                        help='Output directory for reads. Will be created.')
+                        help='Output directory for reads. Will be created, must not already exist.')
     parser.add_argument('--off_target_fraction',
                         type=float,
                         default=0.2,
@@ -202,6 +203,11 @@ def main():
 
     dependency_check()
 
+    if not os.path.isdir(args.output_dir):
+        os.makedirs(args.output_dir)
+    else:
+        logging.error('ERROR: Specified output directory already exists. Must use a new directory.')
+        quit(code=1)
     proportions_dictionary = fetagenome.parse_config_file(args.config_file)
     normalized_proportions = fetagenome.normalize_proportions(proportions_dictionary)
 
@@ -217,8 +223,7 @@ def main():
 
     # Once that's done, extract genes from FASTA files, in proportions expected for each genome, with some end fragments
     # hanging around. Then, simulate 1 - off_target_fraction * number_reads reads from that file.
-    if not os.path.isdir(args.output_dir):
-        os.makedirs(args.output_dir)
+
     extracted_targets = os.path.join(args.output_dir, 'extracted_targets.fasta')
     extract_gene_sequences(gene_locations=gene_locations,
                            gene_proportions=gene_proportions,
@@ -241,10 +246,22 @@ def main():
                               fragment_stdev=args.fragment_stdev,
                               output_dir=args.output_dir)
 
+    # Now just concatenate read files and compress.
+    logging.info('Concatenating R1 reads.')
+    cmd = 'cat {} > {}'.format(os.path.join(args.output_dir, '*_R1.fastq'), os.path.join(args.output_dir, 'baited_meta_R1.fastq'))
+    os.system(cmd)
+    logging.info('Concatenating R2 reads.')
+    cmd = 'cat {} > {}'.format(os.path.join(args.output_dir, '*_R2.fastq'), os.path.join(args.output_dir, 'baited_meta_R2.fastq'))
+    os.system(cmd)
 
-    # ???
+    logging.info('Compressing outputs and cleaning up.')
+    cmd = 'gzip {}'.format(os.path.join(args.output_dir, 'baited_meta_R*.fastq'))
+    os.system(cmd)
 
-    # Profit
+    cmd = 'rm {}'.format(os.path.join(args.output_dir, '*.fastq'))
+    os.system(cmd)
+    logging.info('Done!')
+
 
 
 if __name__ == '__main__':
