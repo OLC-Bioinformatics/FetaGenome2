@@ -33,7 +33,7 @@ class GeneLocation:
         self.gene_length = abs(self.end_position - self.start_position)
 
 
-def find_target_gene_locations(proportions_dictionary, target_fasta):
+def find_target_gene_locations(proportions_dictionary, target_fasta, percent_identity, bait_length):
     # BLAST the target genes against the genome, finding location for each, store in GeneLocation object.
     gene_locations = list()
     # TODO: Get rid of os.systems and use something nicer.
@@ -49,10 +49,7 @@ def find_target_gene_locations(proportions_dictionary, target_fasta):
             for record in NCBIXML.parse(StringIO(out)):
                 for alignment in record.alignments:
                     for hsp in alignment.hsps:
-                        subject_length = len(hsp.sbjct)
-                        # Allow hits that are at least 90 percent identical over 90 percent of length.
-                        # TODO: Let the user parameters trickle through to here.
-                        if hsp.align_length >= subject_length * 0.9 and hsp.positives >= subject_length * 0.9:
+                        if hsp.align_length >= bait_length and 100*hsp.positives/hsp.align_length >= percent_identity:
                             contig_name = alignment.title.split()[1]
                             gene_loc = GeneLocation(fasta_file=genome_fasta,
                                                     contig_name=contig_name,
@@ -188,8 +185,11 @@ def main():
     parser.add_argument('--bait_percent_identity',
                         type=int,
                         default=90,
-                        help='Percent identity to targets required for a gene to be baited. Defaults to 90 percent. '
-                             'WARNING: Does not actually do anything at this point.')
+                        help='Percent identity to targets required for a gene to be baited. Defaults to 90 percent.')
+    parser.add_argument('--bait_length',
+                        type=int,
+                        default=100,
+                        help='Length of bait sequence. Defaults to 100.')
     parser.add_argument('-n', '--number_reads',
                         default=10000000,
                         type=int,
@@ -214,7 +214,9 @@ def main():
     # For baiting out metagenome sequences, we need to do the following:
     # 1) Figure out where in each genome each target is, if it's there at all. Use BLAST for this.
     gene_locations = find_target_gene_locations(proportions_dictionary=normalized_proportions,
-                                                target_fasta=args.targets)
+                                                target_fasta=args.targets,
+                                                percent_identity=args.bait_percent_identity,
+                                                bait_length=args.bait_length)
 
     # With the gene locations known, we can find how much of each gene should be represented in the baited
     # metagenome by weighting the gene length by genome proportion.
