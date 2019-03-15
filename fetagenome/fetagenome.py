@@ -89,6 +89,7 @@ def create_fastq_from_fasta(fasta_file, output_fastq, depth=20, read_length=250,
 
 
 def run_cmd(cmd, log_message):
+    # TODO: This method is bad and it should feel bad. Replace it with something else.
     logging.info(log_message)
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()

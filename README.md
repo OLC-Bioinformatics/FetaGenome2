@@ -67,3 +67,42 @@ optional arguments:
                         Sequencing platform to simulate from. Choices are MSv1
                         (MiSeq) or HS25 (HiSeq 2500). Defaults to MiSeq
 ```
+
+### Making Fetagenomes (Plasmid Aware Edition)
+
+The above Fetagenome creation assumes that coverage is even across the entirety of the genomes
+that are being simulated, which probably isn't a biological reality, particularly when plasmids get involved.
+With this in mind, `FetaGenomePlasmidAware` was created. This program is very similar to `FetaGenome`, but
+will calculate the depth of each contig in the assemblies passed into it, and use that information to create
+more reads for higher-depth locations, and fewer reads for low-depth location.
+
+Because `FetaGenomePlasmidAware` needs to calculate depth, it needs FASTQ files as well as FASTA, so you'll need to add 
+a `ForwardReads` and `ReverseReads` column that contain full paths to forward and reverse reads, respectively, for each
+of your strains. Other than that, usage is very similar to `FetaGenome`. See below usage for more info.
+
+```
+usage: FetaGenomePlasmidAware [-h] -c CONFIG_FILE -o OUTPUT_FILE
+                              [-n NUMBER_READS] [-l READ_LENGTH]
+                              [-i INSERT_SIZE] [-p {MSv1,HS25}]
+
+Given a configuration file, will create a FetaGenome from FASTA files by
+simulating reads with ART and pasting reads together into a FetaGenome.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CONFIG_FILE, --config_file CONFIG_FILE
+                        Path to your configuration file for FetaGenome
+                        creation.
+  -o OUTPUT_FILE, --output_file OUTPUT_FILE
+                        Output file for your FetaGenome.
+  -n NUMBER_READS, --number_reads NUMBER_READS
+                        Number of reads to include in FetaGenome. Defaults to
+                        1000000.
+  -l READ_LENGTH, --read_length READ_LENGTH
+                        Read length. Defaults to 150.
+  -i INSERT_SIZE, --insert_size INSERT_SIZE
+                        Insert size. Defaults to 250.
+  -p {MSv1,HS25}, --platform {MSv1,HS25}
+                        Sequencing platform to simulate from. Choices are MSv1
+                        (MiSeq) or HS25 (HiSeq 2500). Defaults to HiSeq.
+```
