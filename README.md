@@ -10,6 +10,7 @@ In order to have these scripts work, you'll need to following installed and avai
 - [ART](https://www.niehs.nih.gov/research/resources/software/biostatistics/art/index.cfm)
 - [Python3](https://www.python.org/downloads/)
 - Some sort of Unix-based system with basic utilties (gzip, cat, rm) installed.
+- If using the plasmid-aware script, you'll need [BBMap](https://sourceforge.net/projects/bbmap/) as well.
 
 ### Installing FetaGenome Generator
 
@@ -74,16 +75,18 @@ The above Fetagenome creation assumes that coverage is even across the entirety 
 that are being simulated, which probably isn't a biological reality, particularly when plasmids get involved.
 With this in mind, `FetaGenomePlasmidAware` was created. This program is very similar to `FetaGenome`, but
 will calculate the depth of each contig in the assemblies passed into it, and use that information to create
-more reads for higher-depth locations, and fewer reads for low-depth location.
+more reads for higher-depth locations, and fewer reads for low-depth locations.
 
 Because `FetaGenomePlasmidAware` needs to calculate depth, it needs FASTQ files as well as FASTA, so you'll need to add 
 a `ForwardReads` and `ReverseReads` column that contain full paths to forward and reverse reads, respectively, for each
 of your strains. Other than that, usage is very similar to `FetaGenome`. See below usage for more info.
 
 ```
-usage: FetaGenomePlasmidAware [-h] -c CONFIG_FILE -o OUTPUT_FILE
+usage: FetaGenomePlasmidAware [-h] -c CONFIG_FILE [-f FETAGENOME_NAME]
                               [-n NUMBER_READS] [-l READ_LENGTH]
-                              [-i INSERT_SIZE] [-p {MSv1,HS25}]
+                              [-i INSERT_SIZE] [-t THREADS] [--log LOG]
+                              [--coverage_report COVERAGE_REPORT] [-v]
+                              [-p {MSv1,HS25}]
 
 Given a configuration file, will create a FetaGenome from FASTA files by
 simulating reads with ART and pasting reads together into a FetaGenome.
@@ -93,8 +96,9 @@ optional arguments:
   -c CONFIG_FILE, --config_file CONFIG_FILE
                         Path to your configuration file for FetaGenome
                         creation.
-  -o OUTPUT_FILE, --output_file OUTPUT_FILE
-                        Output file for your FetaGenome.
+  -f FETAGENOME_NAME, --fetagenome_name FETAGENOME_NAME
+                        Name of your FetaGenome file. (so reads will be called
+                        FetaGenome_R1.fastq.gz and FetaGenome_R2.fastq.gz)
   -n NUMBER_READS, --number_reads NUMBER_READS
                         Number of reads to include in FetaGenome. Defaults to
                         1000000.
@@ -102,7 +106,18 @@ optional arguments:
                         Read length. Defaults to 150.
   -i INSERT_SIZE, --insert_size INSERT_SIZE
                         Insert size. Defaults to 250.
+  -t THREADS, --threads THREADS
+                        Number of threads to run. Defaults to all cores on
+                        your machine.
+  --log LOG             Name for log file. Defaults to FetaGenome_log_YYYY-MM-
+                        DD_HH:MM:SS.txt
+  --coverage_report COVERAGE_REPORT
+                        If you want a report on coverages for all of your
+                        contigs, specify a file name here for them to be
+                        written to. This file will be in CSV format.
+  -v, --version         show program's version number and exit
   -p {MSv1,HS25}, --platform {MSv1,HS25}
                         Sequencing platform to simulate from. Choices are MSv1
                         (MiSeq) or HS25 (HiSeq 2500). Defaults to HiSeq.
 ```
+
